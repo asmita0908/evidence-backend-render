@@ -8,15 +8,20 @@ const QRCode = require("qrcode");
 const User = require("../models/User");
 
 
-// ---------------- SIGNUP ----------------
+// ================= SIGNUP =================
 
 router.post("/signup", async (req, res) => {
   try {
     const { username, email, password, role } = req.body;
 
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
     const hash = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
+    await User.create({
       username,
       email,
       password: hash,
@@ -26,24 +31,27 @@ router.post("/signup", async (req, res) => {
     res.json({ success: true, message: "Signup successful" });
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Signup error", error: err.message });
   }
 });
 
 
-// ---------------- LOGIN (STEP 1) ----------------
+// ================= LOGIN STEP 1 =================
 
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "User not found" });
+    if (!user)
+      return res.status(400).json({ message: "User not found" });
 
     const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(400).json({ message: "Wrong password" });
+    if (!ok)
+      return res.status(400).json({ message: "Wrong password" });
 
-    // 🔐 if 2FA enabled → ask OTP
+    // 🔐 If 2FA enabled → ask OTP
     if (user.twoFAEnabled) {
       return res.json({
         require2FA: true,
@@ -51,92 +59,122 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // ✅ normal login (no 2FA yet)
+    // ✅ Normal login
     const token = jwt.sign(
       { id: user._id, role: user.role },
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
     );
 
     res.json({ success: true, token, role: user.role });
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Login error" });
   }
 });
 
 
-// ---------------- 2FA SETUP ----------------
+// ================= 2FA SETUP =================
 
 router.post("/2fa/setup", async (req, res) => {
-  const { email } = req.body;
+  try {
+    const { email } = req.body;
 
-  const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({ message: "User not found" });
 
-  const secret = speakeasy.generateSecret({
-    name: `EvidenceSystem (${email})`
-  });
+    const secret = speakeasy.generateSecret({
+      name: `EvidenceSystem (${email})`
+    });
 
-  user.twoFASecret = secret.base32;
-  await user.save();
+    user.twoFASecret = secret.base32;
+    await user.save();
 
-  const qr = await QRCode.toDataURL(secret.otpauth_url);
+    const qr = await QRCode.toDataURL(secret.otpauth_url);
 
-  res.json({
-    qr,
-    secret: secret.base32
-  });
+    res.json({
+      qr,
+      secret: secret.base32
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "2FA setup error" });
+  }
 });
 
 
-// ---------------- 2FA VERIFY ENABLE ----------------
+// ================= 2FA VERIFY ENABLE =================
 
 router.post("/2fa/verify", async (req, res) => {
-  const { email, token } = req.body;
+  try {
+    const { email, token } = req.body;
 
-  const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
+    if (!user || !user.twoFASecret)
+      return res.status(400).json({ message: "2FA not setup" });
 
-  const verified = speakeasy.totp.verify({
-    secret: user.twoFASecret,
-    encoding: "base32",
-    token
-  });
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFASecret,
+      encoding: "base32",
+      token,
+      window: 1
+    });
 
-  if (!verified)
-    return res.status(400).json({ message: "Invalid OTP" });
+    if (!verified)
+      return res.status(400).json({ message: "Invalid OTP" });
 
-  user.twoFAEnabled = true;
-  await user.save();
+    user.twoFAEnabled = true;
+    await user.save();
 
-  res.json({ message: "2FA enabled successfully" });
+    res.json({ message: "2FA enabled successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "2FA verify error" });
+  }
 });
 
 
-// ---------------- LOGIN STEP 2 (OTP VERIFY) ----------------
+// ================= LOGIN STEP 2 (OTP LOGIN) =================
 
 router.post("/login-2fa", async (req, res) => {
-  const { email, token } = req.body;
+  try {
+    const { email, token } = req.body;
 
-  const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(400).json({ message: "User not found" });
 
-  const ok = speakeasy.totp.verify({
-    secret: user.twoFASecret,
-    encoding: "base32",
-    token
-  });
+    const ok = speakeasy.totp.verify({
+      secret: user.twoFASecret,
+      encoding: "base32",
+      token,
+      window: 1
+    });
 
-  if (!ok)
-    return res.status(400).json({ message: "Invalid OTP" });
+    if (!ok)
+      return res.status(400).json({ message: "Invalid OTP" });
 
-  const authToken = jwt.sign(
-    { id: user._id, role: user.role },
-    process.env.JWT_SECRET
-  );
+    const authToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
-  res.json({
-    success: true,
-    token: authToken,
-    role: user.role
-  });
+    res.json({
+      success: true,
+      token: authToken,
+      role: user.role
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "2FA login error" });
+  }
 });
+
 
 module.exports = router;
