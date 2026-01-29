@@ -8,15 +8,28 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "cors": "^2.8.5",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.0.0",
     "mongoose": "^9.1.5",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "uuid": "^13.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asmita0908/evidence-backend-render.git"
+  },
+  "bugs": {
+    "url": "https://github.com/asmita0908/evidence-backend-render/issues"
+  },
+  "homepage": "https://github.com/asmita0908/evidence-backend-render#readme",
+  "description": "",
+  "devDependencies": {
+    "nodemon": "^3.1.11"
   }
 }
