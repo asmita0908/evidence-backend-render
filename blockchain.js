@@ -14,7 +14,7 @@ const contractABI = [
   }
 ];
 
-const contractAddress = "PASTE_DEPLOYED_CONTRACT_ADDRESS";
+const contractAddress = "0x5546C2bE94B4cf00d6117192f40fC37Abb4dB911";
 
 const contract = new web3.eth.Contract(contractABI, contractAddress);
 
