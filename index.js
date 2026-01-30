@@ -6,23 +6,29 @@ require("dotenv").config();
 const app = express();
 
 
+// ---------- CORS (Vercel allow) ----------
+
+app.use(cors({
+  origin: [
+    "https://your-frontend.vercel.app"
+  ],
+  credentials: true
+}));
+
+
 // ---------- MIDDLEWARE ----------
 
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 
-// ---------- ROUTES IMPORT ----------
+// ---------- ROUTES ----------
 
 const authRoutes = require("./routes/authRoutes");
 const caseRoutes = require("./routes/caseRoutes");
 
-
-// ---------- ROUTES USE ----------
-
-app.use("/api/auth", authRoutes);
-app.use("/api/cases", caseRoutes);
+app.use("/api", authRoutes);
+app.use("/api", caseRoutes);
 
 
 // ---------- HEALTH CHECK ----------
