@@ -10,7 +10,7 @@ const app = express();
 
 app.use(cors({
   origin: [
-    "https://your-frontend.vercel.app"
+    "https://evidence-frontend-beta.vercel.app/"
   ],
   credentials: true
 }));
